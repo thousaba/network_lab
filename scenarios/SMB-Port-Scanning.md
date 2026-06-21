@@ -1,4 +1,4 @@
-### SMB PORT SCANNING
+# SMB PORT SCANNING
 SMB (Server Message Block) Port Scanning is a reconnaissance activity performed to determine whether devices on a network are utilizing the SMB protocol and to identify which specific ports (primarily TCP 445, and occasionally UDP/TCP 137, 138, 139) are exposed externally.
 
 This is often one of the primary areas of focus for both attackers and defenders (Blue Team) in network security. Because of its design, SMB handles highly critical operations while historically having been susceptible to significant vulnerabilities

