@@ -102,6 +102,8 @@ index=main sourcetype=_json event_type=tls
 | table src_ip dest_ip dest_port checkins median_int cv verdict
 ```
 
+![Sliver](../screenshots/sliver-5.png?v=2)
+
 
 # D. Three-way agreement
 Two independent methods, on two different data sources (raw PCAP vs eve.json), with no shared inputs and no IOC, converged on the same beacon — and both match the ground truth:
